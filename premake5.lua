@@ -22,7 +22,9 @@ solution "gluac"
 
         if os.is( "linux" ) then
                 buildoptions { "-fPIC", "-pthread" }
+
                 linkoptions { "-pthread" }
+                links { "dl" }
         end
 
 		files { "src/**.*" }
