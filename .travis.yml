@@ -1,0 +1,38 @@
+language: cpp
+compiler: gcc
+os:
+  - linux
+cache:
+  directories:
+    - "$HOME/dependencies"
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - linux-libc-dev:i386
+      - gcc-6
+      - gcc-6-multilib
+      - g++-6
+      - g++-6-multilib
+
+install:
+  - export PREMAKE5="$HOME/dependencies/premake-core/premake5";
+  - export CXX=g++-6
+  - export CC=gcc-6
+  - export REPO="`pwd`"
+  - cd "$HOME/dependencies"
+  - if [ ! -f "premake-core/premake5" ]; then
+      echo "premake-core directory is empty, doing git clone of the remote repo and bootstrap";
+      git clone --recursive https://github.com/premake/premake-core.git;
+      mv premake-core premake-core-build;
+      cd premake-core-build;
+      make -f Bootstrap.mak $TRAVIS_OS_NAME;
+      cd ..;
+      mkdir premake-core;
+      cp premake-core-build/bin/release/premake5 premake-core;
+    fi
+before_script: cd "$REPO" && $PREMAKE5 gmake
+script:
+  - cd "$REPO/project"
+  - make
