@@ -23,3 +23,7 @@ First run: `git submodule update --init --recursive` to grab Bootil.
 
 * **Windows**: Generate your project files using `premake5 vs2015` and build using `project/gluac.sln`
 * **Linux**: Run `premake5 gmake && make`
+
+## License
+
+[The MIT License (MIT) - Copyright (c) 2017 Matt Stevens](LICENSE)
