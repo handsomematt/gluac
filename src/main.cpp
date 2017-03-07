@@ -3,16 +3,30 @@
 using namespace Bootil;
 
 #include "lua_dyn.h"
+#include "lua_jit.h"
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <dlfcn.h>
 #endif
 
+#include <symbolfinder.hpp>
+
 #define LUA_PREFIX LuaFunctions.
 lua_All_functions LuaFunctions;
 
 String::List g_FileList;
+
+typedef int(__cdecl *lj_bcwrite_t) (lua_State *L, void *gcproto, lua_Writer, void *data, int strip);
+lj_bcwrite_t lj_bcwrite = NULL;
+
+#ifdef _WIN32
+static const char *LuaJIT_bcwrite_sym = "\x83\xEC\x24\x8B\x4C\x24\x2C\x8B\x54\x24\x30\x8B\x44\x24\x28\x89";
+static const size_t LuaJIT_bcwrite_symlen = 16;
+#else
+static const char *LuaJIT_bcwrite_sym = "@lj_bcwrite";
+static const size_t LuaJIT_bcwrite_symlen = 0;
+#endif
 
 static void PrintUsage()
 {
@@ -20,6 +34,7 @@ static void PrintUsage()
 	Output::Msg("-?: Prints this message\n");
 	Output::Msg("-o: Output filename (default is output.luac)\n");
 	Output::Msg("-p: Parse only, doesn't dump bytecode\n");
+	Output::Msg("-s: Strip debug information\n");
 
 	exit(1);
 }
@@ -49,8 +64,16 @@ int write_dump(lua_State *L, const void* p, size_t sz, void* ud)
 	return 0;
 }
 
+int lua_dump_with_strip(lua_State *L, lua_Writer writer, void *data, int strip)
+{
+	cTValue *o = L->top - 1;
+	return lj_bcwrite(L, (GCproto *)(mref((&gcval(o)->fn)->l.pc, char) - sizeof(GCproto)), writer, data, strip);
+}
+
 static int lua_main(lua_State* L)
 {
+	BString output_filename = CommandLine::GetSwitch("-o", "output.ljc");
+
 	BOOTIL_FOREACH_CONST(file, g_FileList, String::List)
 	{
 		const char* filename = (*file).c_str();
@@ -64,9 +87,7 @@ static int lua_main(lua_State* L)
 		if (CommandLine::HasSwitch("-p"))
 			continue;
 
-		BString output_filename = CommandLine::GetSwitch("-o", "output.luac");
-
-		FILE* D = fopen(output_filename.c_str(), "wb");
+		FILE* D = fopen(output_filename.c_str(), "ab");
 		if (D == NULL)
 		{
 			Output::Warning("cannot open (%s)\n", strerror(errno));
@@ -76,20 +97,21 @@ static int lua_main(lua_State* L)
 		char* bytecode = 0L;
 		size_t len = 0;
 		wdata wd = { &len, &bytecode };
+		
+		int strip = 0;
+		if (CommandLine::HasSwitch("-s"))
+			strip = 1;
 
-		if (lua_dump(L, write_dump, &wd))
+		if (lua_dump_with_strip(L, write_dump, &wd, 1))
 		{
 			Output::Warning("failed to dump bytecode\n");
 			continue;
 		}
 
 		fwrite(bytecode, len, 1, D);
-
-		lua_pop(L, 3);
-
+		
 		ferror(D);
 		fclose(D);
-
 	}
 
 	return 0;
@@ -103,6 +125,9 @@ bool LoadLuaShared()
 		void* module = dlopen("lua_shared.so", RTLD_LAZY);
 	#endif
 
+	SymbolFinder symfinder;
+	lj_bcwrite = reinterpret_cast<lj_bcwrite_t>(symfinder.Resolve(module, LuaJIT_bcwrite_sym, LuaJIT_bcwrite_symlen));
+	
 	return luaL_loadfunctions(module, &LuaFunctions, sizeof(LuaFunctions));
 }
 
@@ -128,7 +153,7 @@ int main(int argc, char* argv[])
 		Output::Warning("Error loading lua_shared.\n");
 		exit(1);
 	}
-	
+
 	lua_State* L;
 
 	L = lua_open();

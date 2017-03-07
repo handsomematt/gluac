@@ -20,6 +20,16 @@ solution "gluac"
 		links "bootil_static"
 		includedirs "Bootil/include"
 
+		includedirs "scanning"
+		files {
+			"scanning/*.hpp",
+			"scanning/*.cpp"
+		}
+		vpaths {
+			["Symbol Scanning/Headers/*"] = "scanning/*.hpp",
+			["Symbol Scanning/Sources/*"] = "scanning/*.cpp"
+		}
+
         if os.is( "linux" ) then
                 buildoptions { "-fPIC", "-pthread" }
 
