@@ -18,10 +18,35 @@ static void PrintUsage()
 {
 	Output::Msg("USAGE: gluac [filenames] [-?] [-o] [-p]\n");
 	Output::Msg("-?: Prints this message\n");
-	Output::Msg("-o: Output filename (default is lua.luac)\n");
+	Output::Msg("-o: Output filename (default is output.luac)\n");
 	Output::Msg("-p: Parse only, doesn't dump bytecode\n");
 
 	exit(1);
+}
+
+typedef struct {
+	size_t *len;
+	char **data;
+} wdata;
+
+int write_dump(lua_State *L, const void* p, size_t sz, void* ud)
+{
+	wdata *wd = (wdata *)ud;
+
+	char *newData = (char *)realloc(*(wd->data), (*(wd->len)) + sz);
+
+	if (newData)
+	{
+		memcpy(newData + (*(wd->len)), p, sz);
+		*(wd->data) = newData;
+		*(wd->len) += sz;
+	}
+	else {
+		free(newData);
+		return 1;
+	}
+
+	return 0;
 }
 
 static int lua_main(lua_State* L)
@@ -38,6 +63,33 @@ static int lua_main(lua_State* L)
 
 		if (CommandLine::HasSwitch("-p"))
 			continue;
+
+		BString output_filename = CommandLine::GetSwitch("-o", "output.luac");
+
+		FILE* D = fopen(output_filename.c_str(), "wb");
+		if (D == NULL)
+		{
+			Output::Warning("cannot open (%s)\n", strerror(errno));
+			continue;
+		}
+
+		char* bytecode = 0L;
+		size_t len = 0;
+		wdata wd = { &len, &bytecode };
+
+		if (lua_dump(L, write_dump, &wd))
+		{
+			Output::Warning("failed to dump bytecode\n");
+			continue;
+		}
+
+		fwrite(bytecode, len, 1, D);
+
+		lua_pop(L, 3);
+
+		ferror(D);
+		fclose(D);
+
 	}
 
 	return 0;
