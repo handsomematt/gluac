@@ -12,15 +12,35 @@ using namespace Bootil;
 #define LUA_PREFIX LuaFunctions.
 lua_All_functions LuaFunctions;
 
-struct MainUserdata {
-	int fileCount;
-	char** fileList;
-};
+String::List g_FileList;
+
+static void PrintUsage()
+{
+	Output::Msg("USAGE: gluac [filenames] [-?] [-o] [-p]\n");
+	Output::Msg("-?: Prints this message\n");
+	Output::Msg("-o: Output filename (default is lua.luac)\n");
+	Output::Msg("-p: Parse only, doesn't dump bytecode\n");
+
+	exit(1);
+}
 
 static int lua_main(lua_State* L)
 {
-	struct MainUserdata* s = (struct MainUserdata*)lua_touserdata(L, 1);
-	lua_pop(L, 1);
+	BOOTIL_FOREACH_CONST(file, g_FileList, String::List)
+	{
+		const char* filename = (*file).c_str();
+
+		if (luaL_loadfile(L, filename) != 0)
+		{
+			Output::Warning("%s\n", lua_tostring(L, -1));
+			continue;
+		}
+
+		if (CommandLine::HasSwitch("-p"))
+			continue;
+	}
+
+	return 0;
 }
 
 bool LoadLuaShared()
@@ -34,26 +54,41 @@ bool LoadLuaShared()
 	return luaL_loadfunctions(module, &LuaFunctions, sizeof(LuaFunctions));
 }
 
-int main( int argc, char** argv )
+int main(int argc, char* argv[])
 {
 	Debug::SuppressPopups( true );
 	CommandLine::Set(argc, argv);
 
+	if (CommandLine::GetArgCount() <= 0 || CommandLine::HasSwitch("-?"))
+		PrintUsage();
+
+	for (int i = 0; i < CommandLine::GetArgCount(); i++)
+		if (String::Test::StartsWith(CommandLine::GetArg(i), "-"))
+			break;
+		else
+			g_FileList.push_back(CommandLine::GetArg(i));
+
+	if (g_FileList.empty())
+		PrintUsage();
+	
 	if (!LoadLuaShared())
-		Output::Error("Error loading lua_shared.");
+	{
+		Output::Warning("Error loading lua_shared.\n");
+		exit(1);
+	}
 	
 	lua_State* L;
 
 	L = lua_open();
 	luaL_openlibs(L);
 	if (L == NULL)
-		Output::Error("Cannot create state: not enough memory.");
+	{
+		Output::Warning("Cannot create state: not enough memory.\n");
+		exit(1);
+	}
 
-	// construct user data to pass to the Lua state
-	struct MainUserdata userdata;
-
-	if (lua_cpcall(L, lua_main, &userdata) != 0)
-		Output::Warning((lua_tostring(L, -1)));
+	if (lua_cpcall(L, lua_main, NULL) != 0)
+		Output::Warning("%s\n", lua_tostring(L, -1));
 
 	lua_close(L);
 	return 0;
