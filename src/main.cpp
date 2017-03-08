@@ -102,7 +102,7 @@ static int lua_main(lua_State* L)
 		if (CommandLine::HasSwitch("-s"))
 			strip = 1;
 
-		if (lua_dump_with_strip(L, write_dump, &wd, 1))
+		if (lua_dump_with_strip(L, write_dump, &wd, strip))
 		{
 			Output::Warning("failed to dump bytecode\n");
 			continue;
