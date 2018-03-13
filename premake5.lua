@@ -16,7 +16,13 @@ solution "gluac"
 	project "gluac"
 		kind	"ConsoleApp"
 		targetname "gluac"
-		flags { "Symbols", "NoEditAndContinue", "NoPCH", "StaticRuntime", "EnableSSE" }
+		
+		flags { "NoPCH" }
+		symbols "On"
+		editandcontinue "Off"
+		staticruntime "On"
+		vectorextensions "SSE"
+
 		links "bootil_static"
 		includedirs "Bootil/include"
 
@@ -30,7 +36,7 @@ solution "gluac"
 			["Symbol Scanning/Sources/*"] = "scanning/*.cpp"
 		}
 
-        if os.is( "linux" ) then
+        if os.istarget( "linux" ) then
                 buildoptions { "-fPIC", "-pthread" }
 
                 linkoptions { "-pthread" }
@@ -39,4 +45,23 @@ solution "gluac"
 
 		files { "src/**.*" }
 
-	include "Bootil/projects/bootil_premake5.lua"
+	project "bootil_static"
+		uuid ( "AB8E7B19-A70C-4767-88DE-F02160167C2E" )
+		defines { "BOOTIL_COMPILE_STATIC", "BOOST_ALL_NO_LIB" }
+		files { "Bootil/src/**.cpp", "Bootil/include/**.h", "Bootil/src/**.c", "Bootil/src/**.cc" }
+		kind "StaticLib"
+		targetname( "bootil_static" )
+
+		flags { "NoPCH" }
+		symbols "On"
+		editandcontinue "Off"
+		staticruntime "On"
+		vectorextensions "SSE"
+
+		includedirs { "Bootil/include/", "Bootil/src/3rdParty/" }
+		
+		if os.istarget( "linux" ) or os.istarget( "macosx" ) then
+			buildoptions { "-fPIC" }
+		end
+		
+	
