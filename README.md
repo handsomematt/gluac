@@ -9,8 +9,7 @@ Based on `https://github.com/lua/luac/blob/master/luac.c` and `https://code.goog
 
 ## Prerequisites
 
-Depends on [Bootil](https://github.com/garrynewman/bootil) and [danielga/scanning](https://github.com/danielga/scanning)
-which are both included as git submodules.
+Depends on [danielga/scanning](https://github.com/danielga/scanning) which is included as a git submodule.
 And [premake5](https://premake.github.io/) is used to create project files.
 
 `lua_dyn.c` & `lua_dyn.h` are generated using `tools/lua_dyn_export_h.lua` alongside the
@@ -19,11 +18,14 @@ source code for the target version of LuaJIT used in GMod (currently `luajit-2.0
 Running the program requires the libraries from GMod to be in the directory with them:
 
 - Windows: `lua_shared.dll` and `tier0.dll`
-- Linux: `lua_shared.so`, `libsteam.so` and `libtier0.so`
+- Linux: `lua_shared_srv.so`, `libsteam.so`, `libsteam_api.so`, `libtier0_srv.so` `libvstdlib_srv.so`
+
+On Linux you need to export `LD_LIBRARY_PATH` to the directory in order to load the shared libraries
+from it, this can be done by simply running: `export LD_LIBRARY_PATH=.`
 
 ## Building From Source
 
-First run: `git submodule update --init --recursive` to grab `Bootil` and `danielga/scanning`.
+First run: `git submodule update --init --recursive` to grab `danielga/scanning`.
 
 * **Windows**: Generate your project files using `premake5 vs2015` and build using `project/gluac.sln`
 * **Linux**: Run `premake5 gmake && make`
