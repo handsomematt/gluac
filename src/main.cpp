@@ -78,7 +78,7 @@ bool load_lua_shared()
 		return false;
 	}
 	#else
-	void* module = dlopen("./lua_shared_srv.so", RTLD_LAZY);
+	void* module = dlopen("lua_shared_srv.so", RTLD_LAZY);
 
 	if (module == nullptr) {
 		fprintf(stderr, "%s\n", dlerror());
