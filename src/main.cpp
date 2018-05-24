@@ -7,14 +7,16 @@
 #include <dlfcn.h>
 #endif
 
+#include <unistd.h>
 #include <symbolfinder.hpp>
 
 #define LUA_PREFIX LuaFunctions.
 lua_All_functions LuaFunctions;
 
-char* g_sFilename = nullptr;
+char* g_sInputFilename = nullptr;
+char* g_sOutputFilename = nullptr;
 bool g_bParseOnly = false;
-bool g_bStripDebug = true;
+bool g_bStripDebug = false;
 
 typedef int(__cdecl *lj_bcwrite_t) (lua_State *L, void *gcproto, lua_Writer, void *data, int strip);
 lj_bcwrite_t lj_bcwrite = NULL;
@@ -26,16 +28,6 @@ static const size_t LuaJIT_bcwrite_symlen = 16;
 static const char *LuaJIT_bcwrite_sym = "@lj_bcwrite";
 static const size_t LuaJIT_bcwrite_symlen = 0;
 #endif
-
-static void print_usage()
-{
-	printf("USAGE: gluac [filename] [-o] [-p] [-s]\n");
-	printf("-o: Output filename (default: stdout)\n");
-	printf("-p: Parse only, doesn't dump bytecode\n");
-	printf("-s: Strip debug information\n");
-
-	exit(1);
-}
 
 typedef struct {
 	size_t *len;
@@ -101,8 +93,8 @@ bool load_lua_shared()
 static int lua_main(lua_State* L)
 {
 	// load our Lua file as a chunk on the stack (if filename is NULL it loads from stdin)
-	if (luaL_loadfile(L, g_sFilename) != 0) {
-		fprintf(stderr, "luaL_loadfile: %s\n", lua_tostring(L, -1));
+	if (luaL_loadfile(L, g_sInputFilename) != 0) {
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 		return 0;
 	}
 
@@ -130,6 +122,23 @@ static int lua_main(lua_State* L)
 
 int main(int argc, char* argv[])
 {
+	int opt;
+    while ((opt = getopt(argc, argv, "ps")) != -1) {
+        switch (opt) {
+        case 'p': g_bParseOnly = true; break;
+        case 's': g_bStripDebug = true; break;
+        default:
+			printf("USAGE: gluac [input] [output] [-p] [-s]\n");
+			printf("-p: Parse only, doesn't dump bytecode\n");
+			printf("-s: Strip debug information\n");
+            return 1;
+        }
+    }
+
+    if (optind < argc) {
+    	g_sInputFilename = argv[optind];
+    }
+
 	if (!load_lua_shared()) {
 		fprintf(stderr, "error loading lua_shared\n");
 		return 1;
